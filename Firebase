@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>Tafels Trainer Pro</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
+
+<style>
+body { font-family: Arial; margin:0; background:#f4f6f9; text-align:center;}
+header { background:#2c3e50; color:white; padding:15px;}
+.card { background:white; padding:20px; margin:20px auto; width:320px; border-radius:10px;}
+button { padding:10px; margin:5px; border:none; background:#3498db; color:white; border-radius:8px;}
+input, select { padding:10px; margin:5px;}
+.hidden { display:none;}
+table { margin:auto; border-collapse:collapse;}
+td, th { padding:8px; border:1px solid #ccc;}
+</style>
+</head>
+
+<body>
+
+<header>Tafels Trainer PRO</header>
+
+<div id="login" class="card">
+<h3>Leerling</h3>
+<input id="naam" placeholder="Naam">
+<br>
+<select id="modus">
+<option value="maal">Maal</option>
+<option value="deel">Deel</option>
+</select>
+<select id="tafel">
+<option value="all">Alle tafels</option>
+<script>
+for(let i=1;i<=10;i++){
+document.write(`<option value="${i}">Tafel van ${i}</option>`);
+}
+</script>
+</select>
+<br>
+<button onclick="start()">Start</button>
+<button onclick="showTeacher()">Leerkracht</button>
+</div>
+
+<div id="app" class="hidden">
+<div class="card">
+<h2 id="vraag"></h2>
+<input id="antwoord">
+<br>
+<button onclick="check()">Controleer</button>
+<p id="feedback"></p>
+</div>
+
+<p>Juist: <span id="juist">0</span> | Fout: <span id="fout">0</span></p>
+</div>
+
+<div id="teacher" class="hidden">
+<h2>Live klasdashboard</h2>
+<table id="tabel">
+<tr><th>Naam</th><th>Juist</th><th>Fout</th><th>Laatst actief</th></tr>
+</table>
+<button onclick="downloadCSV()">Download rapport</button>
+</div>
+
+<script>
+// 🔥 PLAK HIER JE FIREBASE CONFIG
+const firebaseConfig = {
+  apiKey: "PASTE_HIER",
+  authDomain: "PASTE_HIER",
+  projectId: "PASTE_HIER",
+};
+
+// INIT
+const app = firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+let naam, modus, tafel;
+let a,b,correct;
+let juist=0, fout=0;
+
+// START
+function start(){
+naam=document.getElementById("naam").value;
+modus=document.getElementById("modus").value;
+tafel=document.getElementById("tafel").value;
+
+document.getElementById("login").classList.add("hidden");
+document.getElementById("app").classList.remove("hidden");
+
+nieuweVraag();
+}
+
+// VRAGEN
+function nieuweVraag(){
+if(tafel==="all"){
+a=Math.floor(Math.random()*10)+1;
+}else{
+a=parseInt(tafel);
+}
+b=Math.floor(Math.random()*10)+1;
+
+if(modus==="maal"){
+correct=a*b;
+vraag.innerText=`${a} × ${b}`;
+}else{
+correct=a;
+vraag.innerText=`${a*b} ÷ ${b}`;
+}
+antwoord.value="";
+}
+
+// CHECK
+function check(){
+let ans=parseInt(antwoord.value);
+
+if(ans===correct){
+juist++;
+feedback.innerText="✔️ Juist";
+}else{
+fout++;
+feedback.innerText=`❌ ${correct}`;
+}
+
+updateDB();
+updateUI();
+setTimeout(nieuweVraag,800);
+}
+
+// UPDATE DB (LIVE!)
+function updateDB(){
+db.collection("results").doc(naam).set({
+juist: juist,
+fout: fout,
+tijd: new Date().toLocaleTimeString()
+});
+}
+
+function updateUI(){
+document.getElementById("juist").innerText=juist;
+document.getElementById("fout").innerText=fout;
+}
+
+// TEACHER VIEW
+function showTeacher(){
+document.getElementById("login").classList.add("hidden");
+document.getElementById("teacher").classList.remove("hidden");
+
+db.collection("results").onSnapshot(snapshot=>{
+let table=`<tr><th>Naam</th><th>Juist</th><th>Fout</th><th>Laatst actief</th></tr>`;
+snapshot.forEach(doc=>{
+let d=doc.data();
+table+=`<tr><td>${doc.id}</td><td>${d.juist}</td><td>${d.fout}</td><td>${d.tijd}</td></tr>`;
+});
+document.getElementById("tabel").innerHTML=table;
+});
+}
+
+// CSV DOWNLOAD
+function downloadCSV(){
+db.collection("results").get().then(snapshot=>{
+let csv="Naam,Juist,Fout\n";
+snapshot.forEach(doc=>{
+let d=doc.data();
+csv+=`${doc.id},${d.juist},${d.fout}\n`;
+});
+
+let blob=new Blob([csv],{type:"text/csv"});
+let a=document.createElement("a");
+a.href=URL.createObjectURL(blob);
+a.download="rapport.csv";
+a.click();
+});
+}
+</script>
+
+</body>
+</html>
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyCDDsJCz99_XzJSP_qKu7bzeRUlzPoNlcM",
+  authDomain: "tafels-app.firebaseapp.com",
+  projectId: "tafels-app",
+  storageBucket: "tafels-app.firebasestorage.app",
+  messagingSenderId: "541579675596",
+  appId: "1:541579675596:web:639cc16a9690f308783f69",
+  measurementId: "G-YYS47Y531Y"
+};
