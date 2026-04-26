@@ -2,9 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<title>Tafels Trainer Pro</title>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
+<title>Tafels Trainer PRO</title>
 
 <style>
 body { font-family: Arial; margin:0; background:#f4f6f9; text-align:center;}
@@ -22,6 +20,7 @@ td, th { padding:8px; border:1px solid #ccc;}
 
 <header>Tafels Trainer PRO</header>
 
+<!-- LOGIN -->
 <div id="login" class="card">
 <h3>Leerling</h3>
 <input id="naam" placeholder="Naam">
@@ -30,23 +29,21 @@ td, th { padding:8px; border:1px solid #ccc;}
 <option value="maal">Maal</option>
 <option value="deel">Deel</option>
 </select>
+
 <select id="tafel">
 <option value="all">Alle tafels</option>
-<script>
-for(let i=1;i<=10;i++){
-document.write(`<option value="${i}">Tafel van ${i}</option>`);
-}
-</script>
 </select>
+
 <br>
 <button onclick="start()">Start</button>
 <button onclick="showTeacher()">Leerkracht</button>
 </div>
 
+<!-- APP -->
 <div id="app" class="hidden">
 <div class="card">
 <h2 id="vraag"></h2>
-<input id="antwoord">
+<input id="antwoord" type="number">
 <br>
 <button onclick="check()">Controleer</button>
 <p id="feedback"></p>
@@ -55,15 +52,21 @@ document.write(`<option value="${i}">Tafel van ${i}</option>`);
 <p>Juist: <span id="juist">0</span> | Fout: <span id="fout">0</span></p>
 </div>
 
+<!-- TEACHER -->
 <div id="teacher" class="hidden">
 <h2>Live klasdashboard</h2>
 <table id="tabel">
 <tr><th>Naam</th><th>Juist</th><th>Fout</th><th>Laatst actief</th></tr>
 </table>
+<br>
 <button onclick="downloadCSV()">Download rapport</button>
 </div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc, onSnapshot, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyCDDsJCz99_XzJSP_qKu7bzeRUlzPoNlcM",
@@ -76,106 +79,132 @@ const firebaseConfig = {
 };
 
 // INIT
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
+// Tafels dropdown vullen
+const tafelSelect = document.getElementById("tafel");
+for(let i=1;i<=10;i++){
+  let opt = document.createElement("option");
+  opt.value = i;
+  opt.textContent = "Tafel van " + i;
+  tafelSelect.appendChild(opt);
+}
+
+// Variabelen
 let naam, modus, tafel;
-let a,b,correct;
-let juist=0, fout=0;
+let a, b, correct;
+let juist = 0, fout = 0;
 
 // START
-function start(){
-naam=document.getElementById("naam").value;
-modus=document.getElementById("modus").value;
-tafel=document.getElementById("tafel").value;
+window.start = function(){
+  naam = document.getElementById("naam").value.trim();
+  modus = document.getElementById("modus").value;
+  tafel = document.getElementById("tafel").value;
 
-document.getElementById("login").classList.add("hidden");
-document.getElementById("app").classList.remove("hidden");
+  if(!naam){
+    alert("Vul je naam in");
+    return;
+  }
 
-nieuweVraag();
+  document.getElementById("login").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+
+  nieuweVraag();
 }
 
 // VRAGEN
 function nieuweVraag(){
-if(tafel==="all"){
-a=Math.floor(Math.random()*10)+1;
-}else{
-a=parseInt(tafel);
-}
-b=Math.floor(Math.random()*10)+1;
+  if(tafel === "all"){
+    a = Math.floor(Math.random()*10)+1;
+  } else {
+    a = parseInt(tafel);
+  }
 
-if(modus==="maal"){
-correct=a*b;
-vraag.innerText=`${a} × ${b}`;
-}else{
-correct=a;
-vraag.innerText=`${a*b} ÷ ${b}`;
-}
-antwoord.value="";
+  b = Math.floor(Math.random()*10)+1;
+
+  if(modus === "maal"){
+    correct = a * b;
+    document.getElementById("vraag").innerText = `${a} × ${b}`;
+  } else {
+    correct = a;
+    document.getElementById("vraag").innerText = `${a*b} ÷ ${b}`;
+  }
+
+  document.getElementById("antwoord").value = "";
 }
 
 // CHECK
-function check(){
-let ans=parseInt(antwoord.value);
+window.check = async function(){
+  let ans = parseInt(document.getElementById("antwoord").value);
 
-if(ans===correct){
-juist++;
-feedback.innerText="✔️ Juist";
-}else{
-fout++;
-feedback.innerText=`❌ ${correct}`;
+  if(ans === correct){
+    juist++;
+    document.getElementById("feedback").innerText = "✔️ Juist";
+  } else {
+    fout++;
+    document.getElementById("feedback").innerText = `❌ ${correct}`;
+  }
+
+  document.getElementById("juist").innerText = juist;
+  document.getElementById("fout").innerText = fout;
+
+  await updateDB();
+
+  setTimeout(nieuweVraag, 700);
 }
 
-updateDB();
-updateUI();
-setTimeout(nieuweVraag,800);
-}
-
-// UPDATE DB (LIVE!)
-function updateDB(){
-db.collection("results").doc(naam).set({
-juist: juist,
-fout: fout,
-tijd: new Date().toLocaleTimeString()
-});
-}
-
-function updateUI(){
-document.getElementById("juist").innerText=juist;
-document.getElementById("fout").innerText=fout;
+// UPDATE DB
+async function updateDB(){
+  await setDoc(doc(db, "results", naam), {
+    juist: juist,
+    fout: fout,
+    tijd: new Date().toLocaleTimeString()
+  });
 }
 
 // TEACHER VIEW
-function showTeacher(){
-document.getElementById("login").classList.add("hidden");
-document.getElementById("teacher").classList.remove("hidden");
+window.showTeacher = function(){
+  document.getElementById("login").classList.add("hidden");
+  document.getElementById("teacher").classList.remove("hidden");
 
-db.collection("results").onSnapshot(snapshot=>{
-let table=`<tr><th>Naam</th><th>Juist</th><th>Fout</th><th>Laatst actief</th></tr>`;
-snapshot.forEach(doc=>{
-let d=doc.data();
-table+=`<tr><td>${doc.id}</td><td>${d.juist}</td><td>${d.fout}</td><td>${d.tijd}</td></tr>`;
-});
-document.getElementById("tabel").innerHTML=table;
-});
+  const colRef = collection(db, "results");
+
+  onSnapshot(colRef, (snapshot) => {
+    let table = `<tr><th>Naam</th><th>Juist</th><th>Fout</th><th>Laatst actief</th></tr>`;
+    
+    snapshot.forEach(docSnap => {
+      const d = docSnap.data();
+      table += `<tr>
+        <td>${docSnap.id}</td>
+        <td>${d.juist}</td>
+        <td>${d.fout}</td>
+        <td>${d.tijd}</td>
+      </tr>`;
+    });
+
+    document.getElementById("tabel").innerHTML = table;
+  });
 }
 
 // CSV DOWNLOAD
-function downloadCSV(){
-db.collection("results").get().then(snapshot=>{
-let csv="Naam,Juist,Fout\n";
-snapshot.forEach(doc=>{
-let d=doc.data();
-csv+=`${doc.id},${d.juist},${d.fout}\n`;
-});
+window.downloadCSV = async function(){
+  const querySnapshot = await getDocs(collection(db, "results"));
 
-let blob=new Blob([csv],{type:"text/csv"});
-let a=document.createElement("a");
-a.href=URL.createObjectURL(blob);
-a.download="rapport.csv";
-a.click();
-});
+  let csv = "Naam,Juist,Fout\n";
+
+  querySnapshot.forEach(docSnap => {
+    const d = docSnap.data();
+    csv += `${docSnap.id},${d.juist},${d.fout}\n`;
+  });
+
+  let blob = new Blob([csv], { type: "text/csv" });
+  let a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "rapport.csv";
+  a.click();
 }
+
 </script>
 
 </body>
