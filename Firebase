@@ -78,10 +78,6 @@ const firebaseConfig = {
   measurementId: "G-YYS47Y531Y"
 };
 
-// INIT
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
 // Tafels dropdown vullen
 const tafelSelect = document.getElementById("tafel");
 for(let i=1;i<=10;i++){
